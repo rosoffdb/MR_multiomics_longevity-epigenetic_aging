@@ -1,0 +1,73 @@
+###sCCA weights are available for download from the FUSION TWAS website: http://gusevlab.org/projects/fusion/#gtex-v8-multi-tissue-expression
+##TWAS Plotter is available at: https://github.com/opain/TWAS-plotter
+##focus fine mapping is available at https://github.com/bogdanlab/focus
+
+#script example provided for Multivariate longevity GWAS (Timmers et al. 2020, Nature Communications) (See Manuscript for links to data)
+
+
+##munge with FOCUS LDSC #requires columns SNP, CHR, POS, PVAL, BETA, SE, N
+focus munge /path to files/cf.focus.prep.txt --output long.cleaned
+
+
+
+for chr in $(seq 1 22); do
+  for weights in sCCA1 sCCA2 sCCA3; do
+  Rscript FUSION.assoc_test.R \
+    --sumstats  /path to munged data/long.cleaned.sumstats \
+    --weights ./sCCA_weights_v8/${weights}.txt \
+    --weights_dir ./sCCA_weights_v8/ \
+    --ref_ld_chr ./LDREF/1000G.EUR. \
+    --chr ${chr} \
+    --coloc_P 3.2e-6 \
+    --GWASN 709709 \
+    --out /path/longevity.${weights}.chr${chr}    
+  done
+done
+
+
+# add scca together 
+
+awk '
+    FNR==1 && NR!=1 { while (/TWAS.P/) getline; }
+1 {print}
+' longevity.*.GW > longevity.scca.AllTissues.GW
+
+
+# Manhattan plots for TWAS results
+Rscript TWAS-plotter.V1.0.r \
+  --twas /Users/jon/fusion_test/fusion_twas-master/longevity/longevity.scca.AllTissues.GW \
+  --sig_p 1.31867e-06 \
+  --output longevity.test
+  
+  
+
+##conditional testing 
+
+for chr in $(seq 1 22); do
+Rscript ./FUSION.post_process.R \
+--sumstats //Users/jon/fusion_test/fusion_twas-master/longevity.fusion.txt \
+--input /Users/jon/fusion_test/fusion_twas-master/longevity/longevity.scca.top.txt \
+--out /Users/jon/fusion_test/fusion_twas-master/longevity/conditional/longevity.scca.cond.chr${chr}.analysis \
+--ref_ld_chr ./LDREF/1000G.EUR. \
+--chr ${chr} \
+--plot \
+--save_loci \
+--locus_win 500000
+done
+
+
+
+$fine mapping top hits 
+for sCCA in sCCA1 sCCA2 sCCA3; do
+for chr in $(seq 1 22); do
+focus finemap /path to munged data/longevity.cleaned.sumstats.gz /path to reference/LDREF/1000G.EUR.${chr} ${sCCA}.db --chr ${chr} --out timmers.${sCCA}.chr${chr}
+done
+done
+
+
+
+
+
+
+
+
